@@ -41,7 +41,7 @@ allowed_countries = [
 ]
 
 # پورت‌های ممنوعه
-forbidden_ports = ['80', '8080', '8181', '3128']
+forbidden_ports = ['80', '8080', '8181', '3128', '8880']
 
 # تابع بررسی وجود متن فارسی
 def contains_persian(text):
