@@ -1,0 +1,35 @@
+name: Collect VLESS and Hysteria2 Configs
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # هر 6 ساعت اجرا می‌شود
+  workflow_dispatch:  # امکان اجرای دستی
+
+jobs:
+  collect-configs:
+    runs-on: ubuntu-latest
+
+    steps:
+      # کلون کردن مخزن
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # نصب پایتون
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # نصب وابستگی‌ها
+      - name: Install dependencies
+        run: |
+          pip install telethon pycountry ip2geotools
+
+      # اجرای اسکریپت
+      - name: Run script
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_PHONE: ${{ secrets.TELEGRAM_PHONE }}
+          V2RAY_TOKEN: ${{ secrets.V2RAY_TOKEN }}
+        run: python collect_configs.py
