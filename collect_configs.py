@@ -3,7 +3,6 @@ import os
 import re
 import time
 from telethon import TelegramClient
-from telethon.sync import TelegramClient as SyncTelegramClient
 from telethon.tl.functions.channels import JoinChannelRequest
 import pycountry
 from ip2geotools.databases.noncommercial import DbIpCity
@@ -41,7 +40,7 @@ allowed_countries = [
 ]
 
 # پورت‌های ممنوعه
-forbidden_ports = ['80', '8080', '8181', '3128', '8880']
+forbidden_ports = ['80', '8080', '8181', '3128']
 
 # تابع بررسی وجود متن فارسی
 def contains_persian(text):
@@ -91,87 +90,76 @@ def get_country(ip):
     except Exception as e:
         return None
 
-# تابع عضویت در کانال‌ها
-def join_channels(channel_list, api_id, api_hash, phone_number):
+# تابع عضویت در کانال‌ها (اصلاح‌شده برای استفاده غیرهمزمان)
+async def join_channels(channel_list, api_id, api_hash, phone_number):
     print("تلاش برای عضویت در کانال‌های تلگرام...")
     try:
-        with SyncTelegramClient('session_join', api_id, api_hash) as client:
-            if not client.is_connected():
-                client.connect()
-            client.start(phone=phone_number)
+        async with TelegramClient('session_join', api_id, api_hash) as client:
+            await client.start(phone=phone_number)
             for channel_link in channel_list:
                 try:
                     print(f"تلاش برای پیوستن به: {channel_link}")
                     match = re.search(r't.me/(?:s/|joinchat/)?([a-zA-Z0-9_]+)', channel_link)
                     if match:
                         channel_entity = match.group(1)
-                        client(JoinChannelRequest(channel_entity))
+                        await client(JoinChannelRequest(channel_entity))
                         print(f"با موفقیت به کانال/چت {channel_entity} پیوست.")
                     else:
                         print(f"فرمت لینک کانال نامعتبر: {channel_link}. رد می‌شود.")
                 except Exception as e:
                     print(f"خطا در پیوستن به {channel_link}: {str(e)}")
-            if client.is_connected():
-                client.disconnect()
             print("عملیات عضویت در کانال‌ها به پایان رسید.")
     except Exception as e:
         print(f"خطا در اتصال به تلگرام برای عملیات عضویت: {str(e)}")
 
 # تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام
 async def collect_vless_hysteria2_configs():
-    client = TelegramClient('session_collect', api_id, api_hash)
-    try:
-        await client.start(phone=phone_number)
-    except Exception as e:
-        print(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
-        return []
-
-    valid_configs = []
-
-    for channel in channels:
-        channel_identifier = channel.split('/')[-1]
-        if channel_identifier.startswith('s/'):
-            channel_identifier = channel_identifier[2:]
-        elif 'joinchat' in channel:
-            match = re.search(r'joinchat/([a-zA-Z0-9_]+)', channel)
-            if match:
-                channel_identifier = match.group(1)
-            else:
-                print(f"شناسه معتبر برای جمع‌آوری از لینک دعوت یافت نشد: {channel}. رد می‌شود.")
-                continue
-
+    async with TelegramClient('session_collect', api_id, api_hash) as client:
         try:
-            print(f"دریافت پیام‌ها از کانال: {channel_identifier}")
-            async for message in client.iter_messages(channel_identifier, limit=200):
-                if not message or not message.text:
-                    continue
-                configs = re.findall(r'(vless://[^\s]+|hysteria2://[^\s]+)', message.text)
-                if configs:
-                    for config in configs:
-                        if contains_persian(config):
-                            continue
-                        ip, port = extract_ip_port(config)
-                        if not ip:
-                            continue
-                        if port and port in forbidden_ports:
-                            continue
-                        country = get_country(ip)
-                        if country is None or country == 'Unknown':
-                            valid_configs.append(config)
-                        elif country in allowed_countries:
-                            valid_configs.append(config)
-                await asyncio.sleep(0.1)
+            await client.start(phone=phone_number)
         except Exception as e:
-            print(f"خطا در پردازش کانال {channel_identifier}: {str(e)}")
+            print(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
+            return []
 
-    try:
-        if client.is_connected():
-            await client.disconnect()
-            print("از تلگرام قطع اتصال شد.")
-    except Exception as e:
-        print(f"خطا در قطع اتصال از تلگرام: {str(e)}")
+        valid_configs = []
 
-    return valid_configs
+        for channel in channels:
+            channel_identifier = channel.split('/')[-1]
+            if channel_identifier.startswith('s/'):
+                channel_identifier = channel_identifier[2:]
+            elif 'joinchat' in channel:
+                match = re.search(r'joinchat/([a-zA-Z0-9_]+)', channel)
+                if match:
+                    channel_identifier = match.group(1)
+                else:
+                    print(f"شناسه معتبر برای جمع‌آوری از لینک دعوت یافت نشد: {channel}. رد می‌شود.")
+                    continue
+
+            try:
+                print(f"دریافت پیام‌ها از کانال: {channel_identifier}")
+                async for message in client.iter_messages(channel_identifier, limit=200):
+                    if not message or not message.text:
+                        continue
+                    configs = re.findall(r'(vless://[^\s]+|hysteria2://[^\s]+)', message.text)
+                    if configs:
+                        for config in configs:
+                            if contains_persian(config):
+                                continue
+                            ip, port = extract_ip_port(config)
+                            if not ip:
+                                continue
+                            if port and port in forbidden_ports:
+                                continue
+                            country = get_country(ip)
+                            if country is None or country == 'Unknown':
+                                valid_configs.append(config)
+                            elif country in allowed_countries:
+                                valid_configs.append(config)
+                    await asyncio.sleep(0.1)
+            except Exception as e:
+                print(f"خطا در پردازش کانال {channel_identifier}: {str(e)}")
+
+        return valid_configs
 
 # تابع ذخیره کانفیگ‌ها در فایل و کامیت به مخزن
 def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
@@ -191,6 +179,8 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
             if config not in seen:
                 seen.add(config)
                 unique_configs.append(config)
+        
+        print(f"{len(configs) - len(unique_configs)} کانفیگ تکراری حذف شد.")
 
         # مقایسه با محتوای موجود
         if sorted(unique_configs) != sorted(existing_configs):
@@ -205,7 +195,6 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
                 subprocess.run(['git', 'config', '--global', 'user.email', 'bot@github.com'], check=True)
                 subprocess.run(['git', 'add', file_path], check=True)
                 subprocess.run(['git', 'commit', '-m', 'Update VLESS and Hysteria2 configs'], check=True)
-                # تنظیم URL مخزن با توکن برای احراز هویت
                 repo_url = os.getenv('GITHUB_REPOSITORY')
                 push_url = f"https://x-access-token:{v2ray_token}@github.com/{repo_url}.git"
                 subprocess.run(['git', 'push', push_url], check=True)
@@ -220,7 +209,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
 # تابع اصلی
 async def main():
     try:
-        join_channels(channels, api_id, api_hash, phone_number)
+        await join_channels(channels, api_id, api_hash, phone_number)
         configs = await collect_vless_hysteria2_configs()
         if configs:
             save_configs_to_file(configs)
