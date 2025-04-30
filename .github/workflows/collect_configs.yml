@@ -2,7 +2,7 @@ name: Collect VLESS and Hysteria2 Configs
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # هر 6 ساعت اجرا می‌شود
+    - cron: '0 */1 * * *'  # هر 1 ساعت اجرا می‌شود
   workflow_dispatch:  # امکان اجرای دستی
 
 jobs:
