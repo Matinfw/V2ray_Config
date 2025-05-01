@@ -27,7 +27,7 @@ v2ray_token = os.getenv('V2RAY_TOKEN')
 # لیست لینک‌های کانال‌های تلگرام
 channels = [
     "https://t.me/s/sinavm",
-    "https://t.me/another_channel_link",
+    "https://t.me/configshub2",
     "https://t.me/joinchat/SOME_INVITE_HASH",
     # لینک‌های دیگر را اضافه کنید
 ]
