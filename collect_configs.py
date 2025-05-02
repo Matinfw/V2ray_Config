@@ -50,11 +50,6 @@ allowed_countries = [
 # پورت‌های ممنوعه
 forbidden_ports = ['80', '8080', '8181', '3128']
 
-# تابع بررسی وجود متن فارسی
-def contains_persian(text):
-    persian_pattern = re.compile(r'[\u0600-\u06FF]')
-    return bool(persian_pattern.search(text))
-
 # تابع استخراج IP و پورت
 def extract_ip_port(config):
     try:
@@ -165,8 +160,6 @@ async def collect_vless_hysteria2_configs():
                         continue
                     configs = re.findall(r'(vless://[^\s]+|hysteria2://[^\s]+)', message.text)
                     for config in configs:
-                        if contains_persian(config):
-                            continue
                         ip, port = extract_ip_port(config)
                         if not ip:
                             continue
