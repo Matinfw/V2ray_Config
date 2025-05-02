@@ -1,20 +1,13 @@
 import asyncio
 import os
 import re
-import subprocess
-import logging
-from functools import lru_cache
+import time
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError, InviteHashExpiredError, UserNotMutualContactError
 from telethon.tl.functions.channels import JoinChannelRequest
 import pycountry
 from ip2geotools.databases.noncommercial import DbIpCity
 import urllib.parse
-import ipaddress
-
-# تنظیم لوجینگ
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+import subprocess
 
 # بررسی متغیرهای محیطی
 def check_env_vars():
@@ -25,19 +18,17 @@ def check_env_vars():
 
 check_env_vars()
 
-# متغیرهای محیطی
+# متغیرهای محیطی از GitHub Secrets
 api_id = int(os.getenv('TELEGRAM_API_ID'))
 api_hash = os.getenv('TELEGRAM_API_HASH')
 phone_number = os.getenv('TELEGRAM_PHONE')
 v2ray_token = os.getenv('V2RAY_TOKEN')
-config_file_path = os.getenv('CONFIG_FILE_PATH', 'vless_hysteria2_configs.txt')
 
 # لیست لینک‌های کانال‌های تلگرام
 channels = [
     "https://t.me/s/sinavm",
-    "https://t.me/another_channel_link",
-    "https://t.me/joinchat/SOME_INVITE_HASH",
-    # لینک‌های واقعی کانال‌ها رو اینجا اضافه کن
+    "https://t.me/s/configshub2",
+    # لینک‌های دیگر را اضافه کنید
 ]
 
 # لیست کشورهای مجاز
@@ -48,47 +39,35 @@ allowed_countries = [
 ]
 
 # پورت‌های ممنوعه
-forbidden_ports = ['80', '8080', '8181', '3128']
+forbidden_ports = ['80', '8080', '8880', '8181', '3128']
 
-# تابع استخراج IP و پورت
+# تابع استخراج IP و پورت از کانفیگ‌های VLESS یا Hysteria2
 def extract_ip_port(config):
     try:
         parsed = urllib.parse.urlparse(config)
-        host_port = parsed.netloc
-        if '[' in host_port and ']' in host_port:
-            ip = host_port.split(']')[0].strip('[')
-            port = host_port.split(':')[-1] if ':' in host_port else None
-        else:
-            parts = host_port.split(':')
-            ip = parts[0]
-            port = parts[1] if len(parts) > 1 else None
-        ipaddress.ip_address(ip)
+        if parsed.scheme == 'hysteria2':
+            host_port = parsed.netloc
+            if '[' in host_port and ']' in host_port:  # مدیریت IPv6
+                match = re.match(r'\[([0-9a-fA-F:]+)\](?::(\d+))?', host_port)
+                if match:
+                    ip = match.group(1)
+                    port = match.group(2)
+                else:
+                    ip = None
+                    port = None
+            else:  # مدیریت IPv4 یا نام میزبان
+                parts = host_port.split(':')
+                ip = parts[0]
+                port = parts[1] if len(parts) > 1 else None
+        else:  # فرض VLESS یا مشابه
+            ip_port = parsed.netloc.split(':')
+            ip = ip_port[0]
+            port = ip_port[1] if len(ip_port) > 1 else None
         return ip, port
-    except (ValueError, IndexError):
+    except Exception as e:
         return None, None
 
-# تابع بررسی پینگ
-async def test_ping(ip):
-    try:
-        cmd = ['ping', '-c', '4', '-W', '2', ip]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        if process.returncode == 0:
-            logger.info(f"پینگ موفق برای IP: {ip}")
-            return True
-        else:
-            logger.warning(f"پینگ ناموفق برای IP: {ip}")
-            return False
-    except Exception as e:
-        logger.error(f"خطا در بررسی پینگ برای IP {ip}: {str(e)}")
-        return False
-
 # تابع دریافت کشور سرور
-@lru_cache(maxsize=1000)
 def get_country(ip):
     if not re.match(r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[?([0-9a-fA-F:]+)\]?)$', ip):
         return None
@@ -97,46 +76,43 @@ def get_country(ip):
         country_code = response.country
         if country_code == 'ZZ':
             return 'Unknown'
-        return pycountry.countries.get(alpha_2=country_code).name
-    except Exception:
+        try:
+            country_name = pycountry.countries.get(alpha_2=country_code).name
+            return country_name
+        except AttributeError:
+            return country_code
+    except Exception as e:
         return None
 
 # تابع عضویت در کانال‌ها
 async def join_channels(channel_list, api_id, api_hash, phone_number):
-    logger.info("تلاش برای عضویت در کانال‌های تلگرام...")
-    async with TelegramClient('session_join', api_id, api_hash) as client:
-        try:
+    print("تلاش برای عضویت در کانال‌های تلگرام...")
+    try:
+        async with TelegramClient('session_join', api_id, api_hash) as client:
             await client.start(phone=phone_number)
-        except EOFError:
-            logger.error("نیاز به تأیید ورود تلگرام. لطفاً اسکریپت را به صورت محلی اجرا کنید و کد تأیید را وارد کنید.")
-            raise
-        except Exception as e:
-            logger.error(f"خطا در اتصال به تلگرام: {str(e)}")
-            raise
-        for channel_link in channel_list:
-            try:
-                match = re.search(r't.me/(?:s/|joinchat/|\+)?([a-zA-Z0-9_]+)', channel_link)
-                if not match:
-                    logger.warning(f"فرمت لینک کانال نامعتبر: {channel_link}")
-                    continue
-                channel_entity = match.group(1)
-                await client(JoinChannelRequest(channel_entity))
-                logger.info(f"با موفقیت به کانال {channel_entity} پیوست")
-            except (InviteHashExpiredError, UserNotMutualContactError) as e:
-                logger.error(f"عدم امکان عضویت در {channel_link}: {str(e)}")
-            except Exception as e:
-                logger.error(f"خطا در عضویت در {channel_link}: {str(e)}")
+            for channel_link in channel_list:
+                try:
+                    print(f"تلاش برای پیوستن به: {channel_link}")
+                    match = re.search(r't.me/(?:s/|joinchat/)?([a-zA-Z0-9_]+)', channel_link)
+                    if match:
+                        channel_entity = match.group(1)
+                        await client(JoinChannelRequest(channel_entity))
+                        print(f"با موفقیت به کانال/چت {channel_entity} پیوست.")
+                    else:
+                        print(f"فرمت لینک کانال نامعتبر: {channel_link}. رد می‌شود.")
+                except Exception as e:
+                    print(f"خطا در پیوستن به {channel_link}: {str(e)}")
+            print("عملیات عضویت در کانال‌ها به پایان رسید.")
+    except Exception as e:
+        print(f"خطا در اتصال به تلگرام برای عملیات عضویت: {str(e)}")
 
-# تابع جمع‌آوری کانفیگ‌ها با بررسی پینگ
+# تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام
 async def collect_vless_hysteria2_configs():
     async with TelegramClient('session_collect', api_id, api_hash) as client:
         try:
             await client.start(phone=phone_number)
-        except EOFError:
-            logger.error("نیاز به تأیید ورود تلگرام. لطفاً اسکریپت را به صورت محلی اجرا کنید و کد تأیید را وارد کنید.")
-            raise
         except Exception as e:
-            logger.error(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
+            print(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
             return []
 
         valid_configs = []
@@ -150,70 +126,77 @@ async def collect_vless_hysteria2_configs():
                 if match:
                     channel_identifier = match.group(1)
                 else:
-                    logger.warning(f"شناسه معتبر برای جمع‌آوری از لینک دعوت یافت نشد: {channel}")
+                    print(f"شناسه معتبر برای جمع‌آوری از لینک دعوت یافت نشد: {channel}. رد می‌شود.")
                     continue
 
             try:
-                logger.info(f"دریافت پیام‌ها از کانال: {channel_identifier}")
+                print(f"دریافت پیام‌ها از کانال: {channel_identifier}")
                 async for message in client.iter_messages(channel_identifier, limit=200):
                     if not message or not message.text:
                         continue
                     configs = re.findall(r'(vless://[^\s]+|hysteria2://[^\s]+)', message.text)
-                    for config in configs:
-                        ip, port = extract_ip_port(config)
-                        if not ip:
-                            continue
-                        if port and port in forbidden_ports:
-                            continue
-                        if not await test_ping(ip):
-                            continue
-                        country = get_country(ip)
-                        if country is None or country == 'Unknown':
-                            valid_configs.append(config)
-                        elif country in allowed_countries:
-                            valid_configs.append(config)
+                    if configs:
+                        for config in configs:
+                            ip, port = extract_ip_port(config)
+                            if not ip:
+                                continue
+                            if port and port in forbidden_ports:
+                                continue
+                            country = get_country(ip)
+                            if country is None or country == 'Unknown':
+                                valid_configs.append(config)
+                            elif country in allowed_countries:
+                                valid_configs.append(config)
                     await asyncio.sleep(0.1)
-            except FloodWaitError as e:
-                logger.warning(f"محدودیت نرخ تلگرام، منتظر {e.seconds} ثانیه")
-                await asyncio.sleep(e.seconds)
             except Exception as e:
-                logger.error(f"خطا در پردازش کانال {channel_identifier}: {str(e)}")
+                print(f"خطا در پردازش کانال {channel_identifier}: {str(e)}")
 
         return valid_configs
 
-# تابع ذخیره کانفیگ‌ها
-def save_configs_to_file(configs, file_path=config_file_path):
+# تابع ذخیره کانفیگ‌ها در فایل و کامیت به مخزن
+def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
     try:
-        unique_configs = list(set(config.strip() for config in configs))
-        logger.info(f"{len(configs) - len(unique_configs)} کانفیگ تکراری حذف شد")
-
+        # خواندن محتوای موجود
         try:
             with open(file_path, 'r') as f:
                 existing_configs = f.read().splitlines()
         except FileNotFoundError:
             existing_configs = []
-            logger.info(f"فایل {file_path} یافت نشد. فایل جدید ایجاد می‌شود")
+            print(f"فایل {file_path} یافت نشد. یک فایل جدید ایجاد می‌شود.")
 
+        # فیلتر کردن کانفیگ‌های منحصربه‌فرد
+        seen = set()
+        unique_configs = []
+        for config in configs:
+            if config not in seen:
+                seen.add(config)
+                unique_configs.append(config)
+        
+        print(f"{len(configs) - len(unique_configs)} کانفیگ تکراری حذف شد.")
+
+        # مقایسه با محتوای موجود
         if sorted(unique_configs) != sorted(existing_configs):
+            print(f"نوشتن {len(unique_configs)} کانفیگ معتبر در فایل {file_path}.")
             with open(file_path, 'w') as f:
                 for config in unique_configs:
                     f.write(config + '\n')
-            logger.info(f"{len(unique_configs)} کانفیگ معتبر در {file_path} نوشته شد")
-
-            subprocess.run(['git', 'config', '--global', 'user.name', 'GitHub Action Bot'], check=True)
-            subprocess.run(['git', 'config', '--global', 'user.email', 'bot@github.com'], check=True)
-            result = subprocess.run(['git', 'diff', '--quiet', file_path], capture_output=True)
-            if result.returncode != 0:
+            
+            # عملیات Git برای کامیت و پوش
+            try:
+                subprocess.run(['git', 'config', '--global', 'user.name', 'GitHub Action Bot'], check=True)
+                subprocess.run(['git', 'config', '--global', 'user.email', 'bot@github.com'], check=True)
                 subprocess.run(['git', 'add', file_path], check=True)
                 subprocess.run(['git', 'commit', '-m', 'Update VLESS and Hysteria2 configs'], check=True)
-                subprocess.run(['git', 'push', 'origin', 'main'], check=True)
-                logger.info("کانفیگ‌ها با موفقیت کامیت و پوش شدند")
-            else:
-                logger.info("تغییری برای کامیت وجود ندارد")
+                repo_url = os.getenv('GITHUB_REPOSITORY')
+                push_url = f"https://x-access-token:{v2ray_token}@github.com/{repo_url}.git"
+                subprocess.run(['git', 'push', push_url], check=True)
+                print("کانفیگ‌ها با موفقیت کامیت و پوش شدند.")
+            except subprocess.CalledProcessError as e:
+                print(f"خطا در عملیات Git: {str(e)}")
         else:
-            logger.info("محتوای فایل کانفیگ بدون تغییر است")
+            print("محتوای فایل کانفیگ یکسان است. نیازی به نوشتن یا کامیت نیست.")
     except Exception as e:
-        logger.error(f"خطا در ذخیره کانفیگ‌ها: {str(e)}")
+        print(f"خطا در ذخیره کانفیگ‌ها در فایل: {str(e)}")
 
 # تابع اصلی
 async def main():
@@ -223,10 +206,9 @@ async def main():
         if configs:
             save_configs_to_file(configs)
         else:
-            logger.warning("کانفیگ معتبری یافت نشد")
+            print("پس از جمع‌آوری، کانفیگ معتبری یافت نشد. فایلی نوشته نمی‌شود.")
     except Exception as e:
-        logger.error(f"خطا در اجرای اصلی: {str(e)}")
-        raise
+        print(f"خطایی غیرمنتظره در طول اجرای اصلی رخ داد: {str(e)}")
 
 # اجرای اسکریپت
 if __name__ == "__main__":
