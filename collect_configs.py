@@ -26,8 +26,23 @@ v2ray_token = os.getenv('V2RAY_TOKEN')
 
 # لیست لینک‌های کانال‌های تلگرام
 channels = [
-    "https://t.me/s/sinavm",
-    "https://t.me/s/configshub2",
+    "https://t.me/s/An0nymousTeam",
+    "https://t.me/s/VlessConfig",
+    "https://t.me/s/V2rayng52",
+    "https://t.me/s/NT_Safe",
+    "https://t.me/s/ripaojiedian",
+    "https://t.me/s/v2rayng2i",
+    "https://t.me/s/WangCai2",
+    "https://t.me/s/proxy_kafee",
+    "https://t.me/s/v2raymeliy",
+    "https://t.me/s/v2raytun",
+    "https://t.me/s/vlesskeys",
+    "https://t.me/s/Hysteriay",
+    "https://t.me/s/PrivateVPNs",
+    "https://t.me/s/Hysteria000",
+    "https://t.me/s/V2rayng_Vpn403",
+    "https://t.me/s/FASTSHOVPN",
+    "https://t.me/s/outlineOpenKey"
     # لینک‌های دیگر را اضافه کنید
 ]
 
