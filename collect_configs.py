@@ -37,6 +37,7 @@ channels = [
     "https://t.me/s/sinavm",
     "https://t.me/another_channel_link",
     "https://t.me/joinchat/SOME_INVITE_HASH",
+    # لینک‌های واقعی کانال‌ها رو اینجا اضافه کن
 ]
 
 # لیست کشورهای مجاز
@@ -74,7 +75,6 @@ def extract_ip_port(config):
 # تابع بررسی پینگ
 async def test_ping(ip):
     try:
-        # اجرای دستور ping با حداکثر 4 تلاش و تایم‌اوت 2 ثانیه
         cmd = ['ping', '-c', '4', '-W', '2', ip]
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -110,7 +110,14 @@ def get_country(ip):
 async def join_channels(channel_list, api_id, api_hash, phone_number):
     logger.info("تلاش برای عضویت در کانال‌های تلگرام...")
     async with TelegramClient('session_join', api_id, api_hash) as client:
-        await client.start(phone=phone_number)
+        try:
+            await client.start(phone=phone_number)
+        except EOFError:
+            logger.error("نیاز به تأیید ورود تلگرام. لطفاً اسکریپت را به صورت محلی اجرا کنید و کد تأیید را وارد کنید.")
+            raise
+        except Exception as e:
+            logger.error(f"خطا در اتصال به تلگرام: {str(e)}")
+            raise
         for channel_link in channel_list:
             try:
                 match = re.search(r't.me/(?:s/|joinchat/|\+)?([a-zA-Z0-9_]+)', channel_link)
@@ -130,6 +137,9 @@ async def collect_vless_hysteria2_configs():
     async with TelegramClient('session_collect', api_id, api_hash) as client:
         try:
             await client.start(phone=phone_number)
+        except EOFError:
+            logger.error("نیاز به تأیید ورود تلگرام. لطفاً اسکریپت را به صورت محلی اجرا کنید و کد تأیید را وارد کنید.")
+            raise
         except Exception as e:
             logger.error(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
             return []
@@ -149,7 +159,7 @@ async def collect_vless_hysteria2_configs():
                     continue
 
             try:
-                logger.info(f"دری aft پیام‌ها از کانال: {channel_identifier}")
+                logger.info(f"دریافت پیام‌ها از کانال: {channel_identifier}")
                 async for message in client.iter_messages(channel_identifier, limit=200):
                     if not message or not message.text:
                         continue
@@ -162,7 +172,6 @@ async def collect_vless_hysteria2_configs():
                             continue
                         if port and port in forbidden_ports:
                             continue
-                        # بررسی پینگ
                         if not await test_ping(ip):
                             continue
                         country = get_country(ip)
@@ -198,7 +207,6 @@ def save_configs_to_file(configs, file_path=config_file_path):
                     f.write(config + '\n')
             logger.info(f"{len(unique_configs)} کانفیگ معتبر در {file_path} نوشته شد")
 
-            # عملیات Git
             subprocess.run(['git', 'config', '--global', 'user.name', 'GitHub Action Bot'], check=True)
             subprocess.run(['git', 'config', '--global', 'user.email', 'bot@github.com'], check=True)
             result = subprocess.run(['git', 'diff', '--quiet', file_path], capture_output=True)
@@ -225,6 +233,7 @@ async def main():
             logger.warning("کانفیگ معتبری یافت نشد")
     except Exception as e:
         logger.error(f"خطا در اجرای اصلی: {str(e)}")
+        raise
 
 # اجرای اسکریپت
 if __name__ == "__main__":
