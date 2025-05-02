@@ -23,7 +23,7 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_PHONE: ${{ secrets.TELEGRAM_PHONE }}
           V2RAY_TOKEN: ${{ secrets.V2RAY_TOKEN }}
-        run: python script.py
+        run: python collect_configs.py
       - name: Commit changes
         run: |
           git config --global user.name 'GitHub Action Bot'
