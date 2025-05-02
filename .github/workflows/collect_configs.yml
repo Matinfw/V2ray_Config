@@ -1,35 +1,33 @@
-name: Collect VLESS and Hysteria2 Configs
-
+name: Collect V2Ray Configs
 on:
   schedule:
-    - cron: '0 */1 * * *'  # هر 1 ساعت اجرا می‌شود
-  workflow_dispatch:  # امکان اجرای دستی
-
+    - cron: '0 */1 * * *'  # هر 1 ساعت
+  workflow_dispatch:
 jobs:
-  collect-configs:
+  collect:
     runs-on: ubuntu-latest
-
     steps:
-      # کلون کردن مخزن
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # نصب پایتون
+      - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-
-      # نصب وابستگی‌ها
+          python-version: '3.10'
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y iputils-ping
           pip install telethon pycountry ip2geotools
-
-      # اجرای اسکریپت
       - name: Run script
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_PHONE: ${{ secrets.TELEGRAM_PHONE }}
           V2RAY_TOKEN: ${{ secrets.V2RAY_TOKEN }}
-        run: python collect_configs.py
+        run: python script.py
+      - name: Commit changes
+        run: |
+          git config --global user.name 'GitHub Action Bot'
+          git config --global user.email 'bot@github.com'
+          git add vless_hysteria2_configs.txt
+          git commit -m 'Update VLESS and Hysteria2 configs' || echo "No changes to commit"
+          git push
