@@ -43,6 +43,12 @@ channels = [
     "https://t.me/s/V2rayng_Vpn403",
     "https://t.me/s/FASTSHOVPN",
     "https://t.me/s/outlineOpenKey"
+    "https://t.me/s/free4allVPN"
+    "https://t.me/s/V2rayNG3"
+    "https://t.me/s/DailyV2RY"
+    "https://t.me/s/VlessConfig"
+    "https://t.me/s/V2ray_Collector"
+    "https://t.me/s/MTConfig"
     # لینک‌های دیگر را اضافه کنید
 ]
 
