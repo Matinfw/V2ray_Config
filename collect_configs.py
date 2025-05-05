@@ -11,7 +11,7 @@ import subprocess
 
 # بررسی متغیرهای محیطی
 def check_env_vars():
-    required_vars = ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_PHONE', 'V2RAY_TOKEN']
+    required_vars = ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_BOT_TOKEN', 'V2RAY_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         raise ValueError(f"متغیرهای محیطی زیر موجود نیستند: {', '.join(missing_vars)}")
@@ -21,8 +21,8 @@ check_env_vars()
 # متغیرهای محیطی از GitHub Secrets
 api_id = int(os.getenv('TELEGRAM_API_ID'))
 api_hash = os.getenv('TELEGRAM_API_HASH')
-phone_number = os.getenv('TELEGRAM_PHONE')
-v2ray_token = os.getenv('V2RAY_TOKEN')
+bot_token = os.getenv('TELEGRAM_BOT_TOKEN')  # توکن ربات تلگرام
+v2ray_token = os.getenv('V2RAY_TOKEN')  # توکن گیت‌هاب
 
 # لیست لینک‌های کانال‌های تلگرام
 channels = [
@@ -42,14 +42,13 @@ channels = [
     "https://t.me/s/Hysteria000",
     "https://t.me/s/V2rayng_Vpn403",
     "https://t.me/s/FASTSHOVPN",
-    "https://t.me/s/outlineOpenKey"
-    "https://t.me/s/free4allVPN"
-    "https://t.me/s/V2rayNG3"
-    "https://t.me/s/DailyV2RY"
-    "https://t.me/s/VlessConfig"
-    "https://t.me/s/V2ray_Collector"
-    "https://t.me/s/MTConfig"
-    # لینک‌های دیگر را اضافه کنید
+    "https://t.me/s/outlineOpenKey",
+    "https://t.me/s/free4allVPN",
+    "https://t.me/s/V2rayNG3",
+    "https://t.me/s/DailyV2RY",
+    "https://t.me/s/VlessConfig",
+    "https://t.me/s/V2ray_Collector",
+    "https://t.me/s/MTConfig",
 ]
 
 # لیست کشورهای مجاز
@@ -106,11 +105,11 @@ def get_country(ip):
         return None
 
 # تابع عضویت در کانال‌ها
-async def join_channels(channel_list, api_id, api_hash, phone_number):
+async def join_channels(channel_list, api_id, api_hash, bot_token):
     print("تلاش برای عضویت در کانال‌های تلگرام...")
     try:
         async with TelegramClient('session_join', api_id, api_hash) as client:
-            await client.start(phone=phone_number)
+            await client.start(bot_token=bot_token)
             for channel_link in channel_list:
                 try:
                     print(f"تلاش برای پیوستن به: {channel_link}")
@@ -128,10 +127,10 @@ async def join_channels(channel_list, api_id, api_hash, phone_number):
         print(f"خطا در اتصال به تلگرام برای عملیات عضویت: {str(e)}")
 
 # تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام
-async def collect_vless_hysteria2_configs():
+async def collect_vless_hysteria2_configs(api_id, api_hash, bot_token):
     async with TelegramClient('session_collect', api_id, api_hash) as client:
         try:
-            await client.start(phone=phone_number)
+            await client.start(bot_token=bot_token)
         except Exception as e:
             print(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
             return []
@@ -222,8 +221,8 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
 # تابع اصلی
 async def main():
     try:
-        await join_channels(channels, api_id, api_hash, phone_number)
-        configs = await collect_vless_hysteria2_configs()
+        await join_channels(channels, api_id, api_hash, bot_token)
+        configs = await collect_vless_hysteria2_configs(api_id, api_hash, bot_token)
         if configs:
             save_configs_to_file(configs)
         else:
