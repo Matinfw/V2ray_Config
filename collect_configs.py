@@ -216,7 +216,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
         else:
             print("محتوای فایل کانفیگ یکسان است. نیازی به نوشتن یا کامیت نیست.")
     except Exception as e:
-        print(f"خطا در ذخیره کانفیگ‌ها در فایل: {str(e)}")
+        print(f"خطاا در ذخیره کانفیگ‌ها در فایل: {str(e)}")
 
 # تابع اصلی
 async def main():
