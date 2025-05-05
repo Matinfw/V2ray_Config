@@ -107,6 +107,7 @@ def get_country(ip):
 # تابع عضویت در کانال‌ها
 async def join_channels(channel_list, api_id, api_hash, bot_token):
     print("تلاش برای عضویت در کانال‌های تلگرام...")
+    print(f"استفاده از bot_token: {bot_token[:5]}...")  # لاگ برای دیباگ
     try:
         async with TelegramClient('session_join', api_id, api_hash) as client:
             await client.start(bot_token=bot_token)
@@ -129,6 +130,7 @@ async def join_channels(channel_list, api_id, api_hash, bot_token):
 # تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام
 async def collect_vless_hysteria2_configs(api_id, api_hash, bot_token):
     async with TelegramClient('session_collect', api_id, api_hash) as client:
+        print(f"استفاده از bot_token برای جمع‌آوری: {bot_token[:5]}...")  # لاگ برای دیباگ
         try:
             await client.start(bot_token=bot_token)
         except Exception as e:
@@ -191,7 +193,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
             if config not in seen:
                 seen.add(config)
                 unique_configs.append(config)
-        
+
         print(f"{len(configs) - len(unique_configs)} کانفیگ تکراری حذف شد.")
 
         # مقایسه با محتوای موجود
@@ -200,7 +202,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
             with open(file_path, 'w') as f:
                 for config in unique_configs:
                     f.write(config + '\n')
-            
+
             # عملیات Git برای کامیت و پوش
             try:
                 subprocess.run(['git', 'config', '--global', 'user.name', 'GitHub Action Bot'], check=True)
@@ -216,7 +218,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
         else:
             print("محتوای فایل کانفیگ یکسان است. نیازی به نوشتن یا کامیت نیست.")
     except Exception as e:
-        print(f"خطاا در ذخیره کانفیگ‌ها در فایل: {str(e)}")
+        print(f"خطا در ذخیره کانفیگ‌ها در فایل: {str(e)}")
 
 # تابع اصلی
 async def main():
