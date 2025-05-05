@@ -3,7 +3,6 @@ import os
 import re
 import time
 from telethon import TelegramClient
-from telethon.tl.functions.channels import JoinChannelRequest
 import pycountry
 from ip2geotools.databases.noncommercial import DbIpCity
 import urllib.parse
@@ -25,7 +24,7 @@ bot_token = os.getenv('TELEGRAM_BOT_TOKEN')  # توکن ربات تلگرام
 v2ray_token = os.getenv('V2RAY_TOKEN')  # توکن گیت‌هاب
 
 # لاگ برای دیباگ
-print(f"bot_token loaded: {bot_token[:5]}...")  # فقط 5 کاراکتر اول برای دیباگ
+print(f"bot_token loaded: {bot_token[:5]}...")
 
 # لیست لینک‌های کانال‌های تلگرام
 channels = [
@@ -109,36 +108,7 @@ def get_country(ip):
         print(f"خطا در دریافت کشور: {str(e)}")
         return None
 
-# تابع عضویت در کانال‌ها
-async def join_channels(channel_list, api_id, api_hash, bot_token):
-    print("تلاش برای عضویت در کانال‌های تلگرام...")
-    if not bot_token:
-        print("خطا: bot_token خالی است!")
-        return
-    print(f"استفاده از bot_token برای عضویت: {bot_token[:5]}...")
-    client = TelegramClient('session_join', api_id, api_hash)
-    try:
-        await client.start(bot_token=bot_token)
-        print("اتصال برای عضویت برقرار شد.")
-        for channel_link in channel_list:
-            try:
-                print(f"تلاش برای پیوستن به: {channel_link}")
-                match = re.search(r't.me/(?:s/|joinchat/)?([a-zA-Z0-9_]+)', channel_link)
-                if match:
-                    channel_entity = match.group(1)
-                    await client(JoinChannelRequest(channel_entity))
-                    print(f"با موفقیت به کانال/چت {channel_entity} پیوست.")
-                else:
-                    print(f"فرمت لینک کانال نامعتبر: {channel_link}. رد می‌شود.")
-            except Exception as e:
-                print(f"خطا در پیوستن به {channel_link}: {str(e)}")
-        print("عملیات عضویت در کانال‌ها به پایان رسید.")
-    except Exception as e:
-        print(f"خطا در اتصال به تلگرام برای عملیات عضویت: {str(e)}")
-    finally:
-        await client.disconnect()
-
-# تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام
+# تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام (بدون عضویت)
 async def collect_vless_hysteria2_configs(api_id, api_hash, bot_token):
     print("تلاش برای جمع‌آوری کانفیگ‌ها...")
     if not bot_token:
@@ -210,7 +180,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
             if config not in seen:
                 seen.add(config)
                 unique_configs.append(config)
-        
+
         print(f"{len(configs) - len(unique_configs)} کانفیگ تکراری حذف شد.")
 
         # مقایسه با محتوای موجود
@@ -219,7 +189,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
             with open(file_path, 'w') as f:
                 for config in unique_configs:
                     f.write(config + '\n')
-            
+
             # عملیات Git برای کامیت و پوش
             try:
                 subprocess.run(['git', 'config', '--global', 'user.name', 'GitHub Action Bot'], check=True)
@@ -240,7 +210,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
 # تابع اصلی
 async def main():
     try:
-        await join_channels(channels, api_id, api_hash, bot_token)
+        # await join_channels(channels, api_id, api_hash, bot_token)  # غیرفعال کردن عضویت
         configs = await collect_vless_hysteria2_configs(api_id, api_hash, bot_token)
         if configs:
             print(f"تعداد کانفیگ‌های جمع‌آوری‌شده: {len(configs)}")
