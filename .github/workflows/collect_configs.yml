@@ -2,15 +2,15 @@ name: Collect VLESS and Hysteria2 Configs
 on:
   schedule:
     - cron: '*/30 * * * *'  # اجرای هر 30 دقیقه
-  workflow_dispatch:  # مکان اجرای دستی
+  workflow_dispatch:  # امکان اجرای دستی
 
 jobs:
   collect-configs:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     - name: Install dependencies
@@ -21,15 +21,17 @@ jobs:
       env:
         TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
         TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
-        TELEGRAM_PHONE: ${{ secrets.TELEGRAM_PHONE }}  # اضافه شدن این خط
+        TELEGRAM_PHONE: ${{ secrets.TELEGRAM_PHONE }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         V2RAY_TOKEN: ${{ secrets.V2RAY_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-      run: python collect_configs.py
+        SESSION_COLLECT_BASE64: ${{ secrets.SESSION_COLLECT_BASE64 }}
+        SESSION_JOIN_BASE64: ${{ secrets.SESSION_JOIN_BASE64 }}
+        SESSION_TYPE: "collect"  # یا "join" بسته به نیاز
     - name: Commit and push changes
       run: |
         git config --global user.name 'GitHub Action Bot'
         git config --global user.email 'bot@github.com'
-        git add .
+        git add vless_hysteria2_configs.txt
         git commit -m "Update configs via GitHub Actions" || echo "No changes to commit"
         git push
