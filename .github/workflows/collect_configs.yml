@@ -21,6 +21,7 @@ jobs:
       env:
         TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
         TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        TELEGRAM_PHONE: ${{ secrets.TELEGRAM_PHONE }}  # اضافه شدن این خط
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         V2RAY_TOKEN: ${{ secrets.V2RAY_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
