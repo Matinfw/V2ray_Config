@@ -28,6 +28,7 @@ jobs:
         SESSION_COLLECT_BASE64: ${{ secrets.SESSION_COLLECT_BASE64 }}
         SESSION_JOIN_BASE64: ${{ secrets.SESSION_JOIN_BASE64 }}
         SESSION_TYPE: "collect"  # یا "join" بسته به نیاز
+      run: python collect_configs.py
     - name: Commit and push changes
       run: |
         git config --global user.name 'GitHub Action Bot'
