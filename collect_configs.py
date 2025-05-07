@@ -7,10 +7,11 @@ import pycountry
 from ip2geotools.databases.noncommercial import DbIpCity
 import urllib.parse
 import subprocess
+from telethon.errors import SessionPasswordNeededError, FloodWaitError
 
 # بررسی متغیرهای محیطی
 def check_env_vars():
-    required_vars = ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_BOT_TOKEN', 'V2RAY_TOKEN']
+    required_vars = ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_PHONE', 'V2RAY_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         raise ValueError(f"متغیرهای محیطی زیر موجود نیستند: {', '.join(missing_vars)}")
@@ -20,11 +21,11 @@ check_env_vars()
 # متغیرهای محیطی از GitHub Secrets
 api_id = int(os.getenv('TELEGRAM_API_ID'))
 api_hash = os.getenv('TELEGRAM_API_HASH')
-bot_token = os.getenv('TELEGRAM_BOT_TOKEN')  # توکن ربات تلگرام
+phone = os.getenv('TELEGRAM_PHONE')  # شماره تلفن برای ورود
 v2ray_token = os.getenv('V2RAY_TOKEN')  # توکن گیت‌هاب
 
 # لاگ برای دیباگ
-print(f"bot_token loaded: {bot_token[:5]}...")
+print(f"phone loaded: {phone[:5]}...")
 
 # لیست لینک‌های کانال‌های تلگرام
 channels = [
@@ -108,16 +109,16 @@ def get_country(ip):
         print(f"خطا در دریافت کشور: {str(e)}")
         return None
 
-# تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام (بدون عضویت)
-async def collect_vless_hysteria2_configs(api_id, api_hash, bot_token):
+# تابع جمع‌آوری کانفیگ‌ها از کانال‌های تلگرام (با شماره تلفن)
+async def collect_vless_hysteria2_configs(api_id, api_hash, phone):
     print("تلاش برای جمع‌آوری کانفیگ‌ها...")
-    if not bot_token:
-        print("خطا: bot_token خالی است!")
+    if not phone:
+        print("خطا: شماره تلفن خالی است!")
         return []
-    print(f"استفاده از bot_token برای جمع‌آوری: {bot_token[:5]}...")
+    print(f"استفاده از شماره تلفن برای جمع‌آوری: {phone[:5]}...")
     client = TelegramClient('session_collect', api_id, api_hash)
     try:
-        await client.start(bot_token=bot_token)
+        await client.start(phone=phone)
         print("اتصال برای جمع‌آوری برقرار شد.")
         valid_configs = []
 
@@ -152,10 +153,21 @@ async def collect_vless_hysteria2_configs(api_id, api_hash, bot_token):
                             elif country in allowed_countries:
                                 valid_configs.append(config)
                     await asyncio.sleep(0.1)
+            except FloodWaitError as e:
+                print(f"محدودیت نرخ تلگرام: {e}. منتظر {e.seconds} ثانیه.")
+                await asyncio.sleep(e.seconds)
             except Exception as e:
                 print(f"خطا در پردازش کانال {channel_identifier}: {str(e)}")
+                await asyncio.sleep(1)  # تأخیر برای جلوگیری از EOF
 
         return valid_configs
+    except EOFError:
+        print("خطای EOF رخ داد. تلاش برای اتصال مجدد...")
+        await asyncio.sleep(5)
+        return await collect_vless_hysteria2_configs(api_id, api_hash, phone)
+    except SessionPasswordNeededError:
+        print("نیاز به رمز عبور برای ورود به حساب تلگرام. لطفاً رمز عبور را تنظیم کنید.")
+        return []
     except Exception as e:
         print(f"خطا در اتصال به تلگرام برای جمع‌آوری: {str(e)}")
         return []
@@ -210,8 +222,7 @@ def save_configs_to_file(configs, file_path='vless_hysteria2_configs.txt'):
 # تابع اصلی
 async def main():
     try:
-        # await join_channels(channels, api_id, api_hash, bot_token)  # غیرفعال کردن عضویت
-        configs = await collect_vless_hysteria2_configs(api_id, api_hash, bot_token)
+        configs = await collect_vless_hysteria2_configs(api_id, api_hash, phone)
         if configs:
             print(f"تعداد کانفیگ‌های جمع‌آوری‌شده: {len(configs)}")
             save_configs_to_file(configs)
